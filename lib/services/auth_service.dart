@@ -1,76 +1,114 @@
-import 'package:urban_go/models/user_model.dart';
+import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import './supabase_service.dart';
+
+/// Authentication service for user management
 class AuthService {
-  // Simulated user database (in production, use real backend)
-  static final Map<String, User> _userDatabase = {};
-  static User? _currentUser;
+  final SupabaseClient _client = SupabaseService.client;
 
-  // Get current logged-in user
-  static User? getCurrentUser() {
-    return _currentUser;
-  }
+  /// Get current authenticated user
+  User? get currentUser => _client.auth.currentUser;
 
-  // Register a new user
-  static Future<bool> register({
-    required String name,
-    required String email,
-    required String phone,
-    required String password,
-    required UserRole role,
-  }) async {
-    // Simulate network delay
-    await Future.delayed(const Duration(milliseconds: 500));
+  /// Check if user is authenticated
+  bool get isAuthenticated => currentUser != null;
 
-    // Check if email already exists
-    if (_userDatabase.values.any((user) => user.email == email)) {
-      return false;
-    }
+  /// Get auth state changes stream
+  Stream<AuthState> get authStateChanges => _client.auth.onAuthStateChange;
 
-    final newUser = User(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      name: name,
-      email: email,
-      phone: phone,
-      password: password,
-      role: role,
-      createdAt: DateTime.now(),
-    );
-
-    _userDatabase[newUser.id] = newUser;
-    return true;
-  }
-
-  // Login user
-  static Future<bool> login({
+  /// Sign in with email and password
+  Future<AuthResponse> signIn({
     required String email,
     required String password,
   }) async {
-    // Simulate network delay
-    await Future.delayed(const Duration(milliseconds: 500));
-
     try {
-      final user = _userDatabase.values.firstWhere(
-        (user) => user.email == email && user.password == password,
+      final response = await _client.auth.signInWithPassword(
+        email: email,
+        password: password,
       );
-      _currentUser = user;
-      return true;
+      debugPrint('✅ Sign in successful: ${response.user?.email}');
+      return response;
+    } on AuthException catch (e) {
+      debugPrint('❌ Sign in failed: ${e.message}');
+      rethrow;
     } catch (e) {
-      return false;
+      debugPrint('❌ Sign in error: $e');
+      rethrow;
     }
   }
 
-  // Logout user
-  static void logout() {
-    _currentUser = null;
+  /// Sign up with email, password, and user metadata
+  Future<AuthResponse> signUp({
+    required String email,
+    required String password,
+    required String name,
+    required String role,
+    String? phoneNumber,
+  }) async {
+    try {
+      final response = await _client.auth.signUp(
+        email: email,
+        password: password,
+        data: {'name': name, 'role': role, 'phone_number': phoneNumber},
+      );
+      debugPrint('✅ Sign up successful: ${response.user?.email}');
+      return response;
+    } on AuthException catch (e) {
+      debugPrint('❌ Sign up failed: ${e.message}');
+      rethrow;
+    } catch (e) {
+      debugPrint('❌ Sign up error: $e');
+      rethrow;
+    }
   }
 
-  // Check if user is logged in
-  static bool isLoggedIn() {
-    return _currentUser != null;
+  /// Sign out current user
+  Future<void> signOut() async {
+    try {
+      await _client.auth.signOut();
+      debugPrint('✅ Sign out successful');
+    } on AuthException catch (e) {
+      debugPrint('❌ Sign out failed: ${e.message}');
+      rethrow;
+    } catch (e) {
+      debugPrint('❌ Sign out error: $e');
+      rethrow;
+    }
   }
 
-  // Get user by ID
-  static User? getUserById(String id) {
-    return _userDatabase[id];
+  /// Get user profile from User table
+  Future<Map<String, dynamic>?> getUserProfile(String userId) async {
+    try {
+      final response = await _client
+          .from('User')
+          .select()
+          .eq('auth_id', userId)
+          .maybeSingle();
+      return response;
+    } catch (e) {
+      debugPrint('❌ Get user profile error: $e');
+      return null;
+    }
+  }
+
+  /// Update user profile in User table
+  Future<void> updateUserProfile({
+    required String userId,
+    String? name,
+    String? phoneNumber,
+    String? role,
+  }) async {
+    try {
+      final updates = <String, dynamic>{};
+      if (name != null) updates['name'] = name;
+      if (phoneNumber != null) updates['phone number'] = phoneNumber;
+      if (role != null) updates['role'] = role;
+
+      await _client.from('User').update(updates).eq('auth_id', userId);
+      debugPrint('✅ User profile updated');
+    } catch (e) {
+      debugPrint('❌ Update user profile error: $e');
+      rethrow;
+    }
   }
 }

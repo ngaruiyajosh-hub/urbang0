@@ -1,40 +1,47 @@
 import 'package:flutter/material.dart';
-import 'package:urban_go/screens/auth/login_screen.dart';
-import 'package:urban_go/screens/auth/register_screen.dart';
-import 'package:urban_go/services/auth_service.dart';
-import 'package:urban_go/models/user_model.dart';
+import 'package:flutter/services.dart';
+import 'package:sizer/sizer.dart';
 
-void main() {
-  // Initialize demo users
-  _initializeDemoUsers();
-  runApp(const MyApp());
-}
+import '../core/app_export.dart';
+import '../widgets/custom_error_widget.dart';
+import './services/supabase_service.dart';
+import './services/theme_service.dart';
 
-void _initializeDemoUsers() async {
-  // Create demo users for testing
-  await AuthService.register(
-    name: 'Josh Passenger',
-    email: 'passenger@demo.com',
-    phone: '0712940967',
-    password: 'password123',
-    role: UserRole.passenger,
-  );
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-  await AuthService.register(
-    name: 'Driver Josh',
-    email: 'driver@demo.com',
-    phone: '9876543211',
-    password: 'password123',
-    role: UserRole.driver,
-  );
+  // Initialize Supabase
+  try {
+    await SupabaseService.initialize();
+  } catch (e) {
+    debugPrint('Failed to initialize Supabase: $e');
+  }
 
-  await AuthService.register(
-    name: 'Conductor Josh',
-    email: 'conductor@demo.com',
-    phone: '9876543212',
-    password: 'password123',
-    role: UserRole.conductor,
-  );
+  await ThemeService.initialize();
+
+  bool hasShownError = false;
+
+  // 🚨 CRITICAL: Custom error handling - DO NOT REMOVE
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    if (!hasShownError) {
+      hasShownError = true;
+
+      // Reset flag after 3 seconds to allow error widget on new screens
+      Future.delayed(Duration(seconds: 5), () {
+        hasShownError = false;
+      });
+
+      return CustomErrorWidget(errorDetails: details);
+    }
+    return SizedBox.shrink();
+  };
+
+  // 🚨 CRITICAL: Device orientation lock - DO NOT REMOVE
+  Future.wait([
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]),
+  ]).then((value) {
+    runApp(MyApp());
+  });
 }
 
 class MyApp extends StatelessWidget {
@@ -42,17 +49,34 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Urban Go',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const LoginScreen(),
-      routes: {
-        '/login': (_) => const LoginScreen(),
-        '/register': (_) => const RegisterScreen(),
+    return Sizer(
+      builder: (context, orientation, screenType) {
+        return ValueListenableBuilder<ThemeMode>(
+          valueListenable: ThemeService.themeMode,
+          builder: (context, mode, _) {
+            return MaterialApp(
+              title: 'urban go',
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: mode,
+              // 🚨 CRITICAL: NEVER REMOVE OR MODIFY
+              builder: (context, child) {
+                return MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: TextScaler.linear(1.0)),
+                  child: child!,
+                );
+              },
+              // 🚨 END CRITICAL SECTION
+              debugShowCheckedModeBanner: false,
+              routes: AppRoutes.routes,
+              initialRoute: AppRoutes.initial,
+            );
+          },
+        );
       },
     );
   }
 }
+ 
