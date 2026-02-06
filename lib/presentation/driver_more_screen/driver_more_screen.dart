@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/app_export.dart';
@@ -23,6 +23,16 @@ class DriverMoreScreen extends StatefulWidget {
 class _DriverMoreScreenState extends State<DriverMoreScreen> {
   final _authService = AuthService();
   String? _expandedCategory;
+  bool _didAutoExpandCategory = false;
+  Map<String, dynamic>? _userProfile;
+  bool _isLoadingProfile = false;
+  Uint8List? _profileImageBytes;
+  final Map<String, dynamic> _conductorProfile = {
+    'name': 'Samuel Njoroge',
+    'phone': '+254 700 000 000',
+    'rating': 4.7,
+    'completedTrips': 124,
+  };
   Timer? _nowPlayingTimer;
   int _nowPlayingElapsedSeconds = 0;
   final int _nowPlayingDurationSeconds = 225;
@@ -90,9 +100,6 @@ class _DriverMoreScreenState extends State<DriverMoreScreen> {
       'color': Color(0xFFFF9800),
     },
   ];
-  Map<String, dynamic>? _userProfile;
-  bool _isLoadingProfile = false;
-  Uint8List? _profileImageBytes;
 
   @override
   void initState() {
@@ -105,17 +112,6 @@ class _DriverMoreScreenState extends State<DriverMoreScreen> {
   void dispose() {
     _nowPlayingTimer?.cancel();
     super.dispose();
-  }
-
-  void _startNowPlayingTimer() {
-    _nowPlayingTimer?.cancel();
-    _nowPlayingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!_isNowPlaying) return;
-      setState(() {
-        _nowPlayingElapsedSeconds =
-            (_nowPlayingElapsedSeconds + 1) % _nowPlayingDurationSeconds;
-      });
-    });
   }
 
   Future<void> _loadUserProfile() async {
@@ -138,6 +134,17 @@ class _DriverMoreScreenState extends State<DriverMoreScreen> {
     if (!mounted) return;
     setState(() {
       _profileImageBytes = bytes;
+    });
+  }
+
+  void _startNowPlayingTimer() {
+    _nowPlayingTimer?.cancel();
+    _nowPlayingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!_isNowPlaying) return;
+      setState(() {
+        _nowPlayingElapsedSeconds =
+            (_nowPlayingElapsedSeconds + 1) % _nowPlayingDurationSeconds;
+      });
     });
   }
 
@@ -374,13 +381,48 @@ class _DriverMoreScreenState extends State<DriverMoreScreen> {
     return '$minutes:$secs';
   }
 
+  void _selectCategoryFromDrawer(String category) {
+    Navigator.pop(context);
+    _toggleCategory(category);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    final String? selectedCategory =
+        ModalRoute.of(context)?.settings.arguments as String?;
+
+    if (selectedCategory != null && !_didAutoExpandCategory) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        setState(() {
+          _expandedCategory = selectedCategory;
+          _didAutoExpandCategory = true;
+          if (selectedCategory == 'Passengers' && _passengers.isEmpty) {
+            _loadPassengers();
+          } else if (selectedCategory == 'Trips' && _trips.isEmpty) {
+            _loadTrips();
+          } else if (selectedCategory == 'Vehicle' && _vehicles.isEmpty) {
+            _loadVehicles();
+          }
+        });
+      });
+    }
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(title: const Text('More'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('More'),
+        centerTitle: true,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+            tooltip: 'Menu',
+          ),
+        ),
+      ),
+      drawer: _buildDrawer(theme),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.symmetric(vertical: 2.h, horizontal: 4.w),
@@ -486,6 +528,120 @@ class _DriverMoreScreenState extends State<DriverMoreScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildDrawer(ThemeData theme) {
+    return Drawer(
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(4.w),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    theme.colorScheme.primary,
+                    theme.colorScheme.primaryContainer,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 8.w,
+                    backgroundColor: Colors.white,
+                    child: Icon(
+                      Icons.person,
+                      size: 8.w,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                  SizedBox(width: 3.w),
+                  Text(
+                    'Driver Menu',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.symmetric(vertical: 2.h),
+                children: [
+                  _buildDrawerItem(
+                    icon: Icons.people,
+                    title: 'Passengers',
+                    onTap: () => _selectCategoryFromDrawer('Passengers'),
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.account_balance_wallet,
+                    title: 'My Wallet',
+                    onTap: () => _selectCategoryFromDrawer('My Wallet'),
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.route,
+                    title: 'Trips',
+                    onTap: () => _selectCategoryFromDrawer('Trips'),
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.person,
+                    title: 'My Account',
+                    onTap: () => _selectCategoryFromDrawer('My Account'),
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.directions_car,
+                    title: 'Vehicle',
+                    onTap: () => _selectCategoryFromDrawer('Vehicle'),
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.support_agent,
+                    title: 'Support',
+                    onTap: () => _selectCategoryFromDrawer('Support'),
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.music_note,
+                    title: 'Entertainment',
+                    onTap: () => _selectCategoryFromDrawer('Entertainment'),
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.groups,
+                    title: 'Community',
+                    onTap: () => _selectCategoryFromDrawer('Community'),
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.logout,
+                    title: 'Log Out',
+                    onTap: () => _selectCategoryFromDrawer('Log Out'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawerItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    return ListTile(
+      leading: Icon(icon, color: theme.colorScheme.primary),
+      title: Text(
+        title,
+        style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
+      ),
+      onTap: onTap,
     );
   }
 
@@ -844,15 +1000,29 @@ class _DriverMoreScreenState extends State<DriverMoreScreen> {
         _buildAccountSection(
           theme,
           title: 'Profile Information',
-          icon: Icons.person,
-          child: _buildProfileInfo(theme),
+          icon: Icons.person_outline,
+          child: _buildDriverProfileInfo(theme),
         ),
         SizedBox(height: 1.h),
         _buildAccountSection(
           theme,
-          title: 'Ride History',
+          title: 'Documents',
+          icon: Icons.description,
+          child: _buildDriverDocuments(theme),
+        ),
+        SizedBox(height: 1.h),
+        _buildAccountSection(
+          theme,
+          title: 'Verification Status',
+          icon: Icons.verified,
+          child: _buildVerificationStatus(theme),
+        ),
+        SizedBox(height: 1.h),
+        _buildAccountSection(
+          theme,
+          title: 'Account History',
           icon: Icons.history,
-          child: _buildRideHistory(theme),
+          child: _buildAccountHistory(theme),
         ),
         SizedBox(height: 1.h),
         _buildAccountSection(
@@ -898,7 +1068,7 @@ class _DriverMoreScreenState extends State<DriverMoreScreen> {
     );
   }
 
-  Widget _buildProfileInfo(ThemeData theme) {
+  Widget _buildDriverProfileInfo(ThemeData theme) {
     if (_isLoadingProfile) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -907,6 +1077,8 @@ class _DriverMoreScreenState extends State<DriverMoreScreen> {
     final email = _userProfile?['email'] ?? '';
     final phone = _userProfile?['phone number'] ?? _userProfile?['phone'] ?? '';
     final address = _userProfile?['home_address'] ?? 'Nairobi, Kenya';
+    final license = _userProfile?['license'] ?? 'DL-DR-001239';
+    final rating = (_userProfile?['rating'] ?? 4.8).toDouble();
 
     Widget avatar;
     if (_profileImageBytes != null) {
@@ -949,6 +1121,8 @@ class _DriverMoreScreenState extends State<DriverMoreScreen> {
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
+                  SizedBox(height: 0.6.h),
+                  _buildRatingRow(theme, rating),
                 ],
               ),
             ),
@@ -962,6 +1136,129 @@ class _DriverMoreScreenState extends State<DriverMoreScreen> {
         _buildInfoRow(theme, 'Home Address', address),
         _buildInfoRow(theme, 'Email', email),
         _buildInfoRow(theme, 'Phone', phone),
+        _buildInfoRow(theme, 'License', license),
+        SizedBox(height: 2.h),
+        Text(
+          'Conductor Profile',
+          style: theme.textTheme.bodyLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        SizedBox(height: 1.h),
+        _buildInfoRow(theme, 'Name', _conductorProfile['name']),
+        _buildInfoRow(theme, 'Phone', _conductorProfile['phone']),
+        Row(
+          children: [
+            Text(
+              'Rating',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const Spacer(),
+            _buildRatingStars(
+              theme,
+              (_conductorProfile['rating'] as num).toDouble(),
+            ),
+            SizedBox(width: 2.w),
+            Text(
+              (_conductorProfile['rating'] as num).toStringAsFixed(1),
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 0.8.h),
+        _buildInfoRow(
+          theme,
+          'Completed Trips',
+          _conductorProfile['completedTrips'].toString(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDriverDocuments(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildInfoRow(theme, 'Driver License', 'Valid until 2027-10-15'),
+        _buildInfoRow(theme, 'Vehicle Insurance', 'Valid until 2026-08-20'),
+        _buildInfoRow(theme, 'PSV Badge', 'Valid until 2026-05-12'),
+        SizedBox(height: 1.h),
+        OutlinedButton.icon(
+          onPressed: () {},
+          icon: const Icon(Icons.upload_file),
+          label: const Text('Upload Document'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVerificationStatus(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildStatusRow(theme, 'Identity', true),
+        _buildStatusRow(theme, 'License', true),
+        _buildStatusRow(theme, 'Vehicle Inspection', true),
+        _buildStatusRow(theme, 'Insurance', false),
+      ],
+    );
+  }
+
+  Widget _buildAccountHistory(ThemeData theme) {
+    final history = [
+      'Joined Urban Go - 2024-03-14',
+      'Completed 500 trips - 2025-11-02',
+      'Received 5-star rating - 2026-01-21',
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: history
+          .map(
+            (item) => Padding(
+              padding: EdgeInsets.symmetric(vertical: 0.6.h),
+              child: Text(item, style: theme.textTheme.bodySmall),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Widget _buildCommonRoutes(ThemeData theme) {
+    final routes = [
+      'Route 24 Westlands',
+      'Route 18 Airport Express',
+      'Route 11 Rongai',
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: routes
+          .map(
+            (route) => Padding(
+              padding: EdgeInsets.symmetric(vertical: 0.6.h),
+              child: Text(route, style: theme.textTheme.bodySmall),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Widget _buildPreferences(ThemeData theme) {
+    final isDark = ThemeService.themeMode.value == ThemeMode.dark;
+    return Column(
+      children: [
+        SwitchListTile(
+          value: isDark,
+          onChanged: (value) {
+            ThemeService.setTheme(value ? ThemeMode.dark : ThemeMode.light);
+            setState(() {});
+          },
+          title: const Text('Theme'),
+          subtitle: Text(isDark ? 'Dark theme' : 'Light theme'),
+        ),
       ],
     );
   }
@@ -993,58 +1290,65 @@ class _DriverMoreScreenState extends State<DriverMoreScreen> {
     );
   }
 
-  Widget _buildRideHistory(ThemeData theme) {
-    final rides = [
-      'Nairobi CBD > Rongai 5 hours ago',
-      'Westlands > CBD 1 day ago',
-      'Kilimani > Upper Hill 2 days ago',
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: rides
-          .map(
-            (ride) => Padding(
-              padding: EdgeInsets.symmetric(vertical: 0.6.h),
-              child: Text(ride, style: theme.textTheme.bodySmall),
+  Widget _buildStatusRow(ThemeData theme, String label, bool verified) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 0.6.h),
+      child: Row(
+        children: [
+          Icon(
+            verified ? Icons.check_circle : Icons.error_outline,
+            color: verified ? Colors.green : theme.colorScheme.error,
+            size: 4.5.w,
+          ),
+          SizedBox(width: 2.w),
+          Expanded(
+            child: Text(label, style: theme.textTheme.bodySmall),
+          ),
+          Text(
+            verified ? 'Verified' : 'Pending',
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: verified ? Colors.green : theme.colorScheme.error,
             ),
-          )
-          .toList(),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildCommonRoutes(ThemeData theme) {
-    final routes = [
-      'Route 100 Kiambu',
-      'Route 125 Rongai',
-      'Route 111 Ngong',
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: routes
-          .map(
-            (route) => Padding(
-              padding: EdgeInsets.symmetric(vertical: 0.6.h),
-              child: Text(route, style: theme.textTheme.bodySmall),
-            ),
-          )
-          .toList(),
-    );
-  }
-
-  Widget _buildPreferences(ThemeData theme) {
-    final isDark = ThemeService.themeMode.value == ThemeMode.dark;
-    return Column(
+  Widget _buildRatingRow(ThemeData theme, double rating) {
+    return Row(
       children: [
-        SwitchListTile(
-          value: isDark,
-          onChanged: (value) {
-            ThemeService.setTheme(value ? ThemeMode.dark : ThemeMode.light);
-            setState(() {});
-          },
-          title: const Text('Theme'),
-          subtitle: Text(isDark ? 'Dark theme' : 'Light theme'),
+        _buildRatingStars(theme, rating),
+        SizedBox(width: 2.w),
+        Text(
+          rating.toStringAsFixed(1),
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildRatingStars(ThemeData theme, double rating) {
+    final fullStars = rating.floor();
+    final hasHalf = (rating - fullStars) >= 0.5;
+    return Row(
+      children: List.generate(5, (index) {
+        if (index < fullStars) {
+          return Icon(Icons.star, size: 4.w, color: Colors.amber);
+        }
+        if (index == fullStars && hasHalf) {
+          return Icon(Icons.star_half, size: 4.w, color: Colors.amber);
+        }
+        return Icon(
+          Icons.star_border,
+          size: 4.w,
+          color: Colors.amber,
+        );
+      }),
     );
   }
 

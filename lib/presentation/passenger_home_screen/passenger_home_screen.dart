@@ -32,6 +32,16 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
   String? _expandedRideSubsection;
   Map<String, dynamic>? _activeBookingForTracking;
   String _tripStatus = 'driver_assigned';
+  final Map<String, int> _rideRatings = {};
+  final List<Map<String, String>> _ridesToRate = [
+    {
+      'id': 'ride_1',
+      'route': 'Downtown to Airport',
+      'driver': 'John Doe',
+      'vehicle': 'Toyota Prius - KCA 123X',
+      'date': 'Jan 15, 2026',
+    },
+  ];
 
   @override
   void initState() {
@@ -1077,23 +1087,37 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
   }
 
   Widget _buildRatingContent(ThemeData theme) {
+    final lastRide = _ridesToRate.first;
     return Column(
       children: [
         Text(
-          'Rate your recent rides',
+          'Rate your last ride',
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w600,
           ),
         ),
         SizedBox(height: 2.h),
-        _buildRatingItem(theme, 'Downtown to Airport', 'Driver: John Doe'),
-        SizedBox(height: 1.h),
-        _buildRatingItem(theme, 'Home to Office', 'Driver: Jane Smith'),
+        _buildRatingItem(
+          theme,
+          rideId: lastRide['id'] ?? '',
+          title: lastRide['route'] ?? '',
+          driverName: lastRide['driver'] ?? '',
+          vehicle: lastRide['vehicle'] ?? '',
+          date: lastRide['date'] ?? '',
+        ),
       ],
     );
   }
 
-  Widget _buildRatingItem(ThemeData theme, String title, String subtitle) {
+  Widget _buildRatingItem(
+    ThemeData theme, {
+    required String rideId,
+    required String title,
+    required String driverName,
+    required String vehicle,
+    required String date,
+  }) {
+    final rating = _rideRatings[rideId] ?? 0;
     return Container(
       padding: EdgeInsets.all(3.w),
       decoration: BoxDecoration(
@@ -1110,7 +1134,21 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
             ),
           ),
           Text(
-            subtitle,
+            'Driver: $driverName',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          SizedBox(height: 0.5.h),
+          Text(
+            vehicle,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          SizedBox(height: 0.5.h),
+          Text(
+            'Date: $date',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -1120,18 +1158,37 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(
               5,
-              (index) => IconButton(
-                icon: Icon(Icons.star_border, color: theme.colorScheme.primary),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Rated ${index + 1} stars')),
-                  );
-                },
+              (index) {
+                final isSelected = index < rating;
+                return IconButton(
+                  icon: Icon(
+                    isSelected ? Icons.star : Icons.star_border,
+                    color: theme.colorScheme.primary,
+                  ),
+                  onPressed: () => _setRideRating(rideId, index + 1),
+                );
+              },
+            ),
+          ),
+          Center(
+            child: Text(
+              rating == 0 ? 'Tap to rate' : 'You rated $rating of 5',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  void _setRideRating(String rideId, int rating) {
+    setState(() {
+      _rideRatings[rideId] = rating;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Rated $rating star${rating == 1 ? '' : 's'}')),
     );
   }
 

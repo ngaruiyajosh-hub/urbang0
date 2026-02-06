@@ -75,6 +75,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     });
   }
 
+  void _navigateToMore(String category) {
+    Navigator.pushNamed(context, AppRoutes.driverMore, arguments: category);
+  }
+
   void _toggleOnlineStatus() {
     setState(() {
       _isOnline = !_isOnline;
@@ -236,43 +240,43 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 padding: EdgeInsets.symmetric(vertical: 2.h),
                 children: [
                   _buildDrawerItem(
-                    icon: Icons.assignment,
-                    title: 'Assigned Bookings',
+                    icon: Icons.people,
+                    title: 'Passengers',
                     onTap: () {
                       Navigator.pop(context);
-                      _toggleSection('Assigned Bookings');
-                    },
-                  ),
-                  _buildDrawerItem(
-                    icon: Icons.directions_car,
-                    title: 'My Trips',
-                    onTap: () {
-                      Navigator.pop(context);
-                      _toggleSection('Trips');
+                      _navigateToMore('Passengers');
                     },
                   ),
                   _buildDrawerItem(
                     icon: Icons.account_balance_wallet,
-                    title: 'Earnings',
+                    title: 'My Wallet',
                     onTap: () {
                       Navigator.pop(context);
-                      _toggleSection('Earnings');
+                      _navigateToMore('My Wallet');
                     },
                   ),
                   _buildDrawerItem(
-                    icon: Icons.location_on,
-                    title: 'Pick Up/Drop Off',
+                    icon: Icons.route,
+                    title: 'Trips',
                     onTap: () {
                       Navigator.pop(context);
-                      _toggleSection('Pick Up/Drop Off Points');
+                      _navigateToMore('Trips');
                     },
                   ),
-                  const Divider(),
                   _buildDrawerItem(
                     icon: Icons.person,
-                    title: 'My Profile',
+                    title: 'My Account',
                     onTap: () {
                       Navigator.pop(context);
+                      _navigateToMore('My Account');
+                    },
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.directions_car,
+                    title: 'Vehicle',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _navigateToMore('Vehicle');
                     },
                   ),
                   _buildDrawerItem(
@@ -280,51 +284,68 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                     title: 'Support',
                     onTap: () {
                       Navigator.pop(context);
+                      _navigateToMore('Support');
                     },
                   ),
                   _buildDrawerItem(
-                    icon: Icons.settings,
-                    title: 'Settings',
+                    icon: Icons.music_note,
+                    title: 'Entertainment',
                     onTap: () {
                       Navigator.pop(context);
+                      _navigateToMore('Entertainment');
                     },
                   ),
                   _buildDrawerItem(
-                    icon: Icons.more_horiz,
-                    title: 'More',
+                    icon: Icons.groups,
+                    title: 'Community',
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.pushNamed(context, AppRoutes.driverMore);
+                      _navigateToMore('Community');
+                    },
+                  ),
+                  Divider(color: theme.dividerColor),
+                  _buildDrawerItem(
+                    icon: Icons.logout,
+                    title: 'Log Out',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _showLogoutConfirmDialog();
                     },
                   ),
                 ],
-              ),
-            ),
-
-            // Logout
-            Padding(
-              padding: EdgeInsets.all(4.w),
-              child: ListTile(
-                leading: Icon(Icons.logout, color: theme.colorScheme.error),
-                title: Text(
-                  'Logout',
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.error,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                onTap: () async {
-                  Navigator.pop(context);
-                  await _authService.signOut();
-                  if (!mounted) return;
-                  Navigator.pushReplacementNamed(context, AppRoutes.login);
-                },
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _showLogoutConfirmDialog() async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to sign out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+    if (shouldLogout == true) {
+      await _authService.signOut();
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, AppRoutes.login);
+    }
   }
 
   Widget _buildDrawerItem({
